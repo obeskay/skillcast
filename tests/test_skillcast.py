@@ -226,5 +226,44 @@ class EndToEndTest(unittest.TestCase):
             self.assertIn(expected, skill.files)
 
 
+class CliContractTest(unittest.TestCase):
+    """Exit codes are the interface CI reads: 0 ok, 1 bad content, 2 bad input."""
+
+    def run_cli(self, *args):
+        return subprocess.run(
+            [sys.executable, "-m", "skillcast.cli", *args],
+            cwd=REPO, capture_output=True, text=True)
+
+    def test_missing_file_is_an_input_error(self):
+        self.assertEqual(self.run_cli("/tmp/does-not-exist-skillcast.mp4").returncode, 2)
+
+    def test_not_a_video_is_an_input_error(self):
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as handle:
+            handle.write(b"this is not a video")
+        self.assertEqual(self.run_cli(handle.name).returncode, 2)
+
+    @unittest.skipUnless(HAVE_TOOLS, "ffmpeg/tesseract not installed")
+    def test_video_with_no_commands_is_a_content_failure(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            blank = Path(tmp) / "blank.mp4"
+            subprocess.run(
+                ["ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi",
+                 "-i", "testsrc=size=320x180:rate=8:duration=3",
+                 "-pix_fmt", "yuv420p", str(blank)], check=True)
+            result = self.run_cli(str(blank), "--dry-run")
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("no commands", result.stderr)
+
+    @unittest.skipUnless(HAVE_TOOLS and FIXTURE.exists(), "fixture unavailable")
+    def test_success_is_zero_and_json_is_parseable(self):
+        result = self.run_cli(str(FIXTURE), "--dry-run", "--json")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertTrue(payload["ok"])
+        self.assertTrue(payload["skill"]["steps"])
+
+
 if __name__ == "__main__":
     unittest.main()
