@@ -15,7 +15,8 @@ from pathlib import Path
 from . import __version__
 from .emit import TARGETS, write
 from .extract import (DEFAULT_SCENE_THRESHOLD, ExtractionError, dedupe_commands,
-                      probe, read_screen)
+                      known_tool_commands, probe, read_screen,
+                      screen_confidence)
 from .synth import build_skill
 from .verify import shellcheck, shellcheck_available, verify
 
@@ -66,7 +67,22 @@ def main(argv=None):
         print("skillcast: %s" % error, file=sys.stderr)
         return 2
 
+    # Footage with no terminal in it still yields OCR noise that can pass for a
+    # prompt. Refuse it rather than emitting a skill made of stray characters.
+    confidence = screen_confidence(observations)
     commands = dedupe_commands(observations)
+    recognised = known_tool_commands(observations)
+    if commands and not recognised:
+        print("skillcast: this does not look like a screen recording.",
+              file=sys.stderr)
+        print("  %d candidate command(s) were found but not one uses a program "
+              "I recognise, which is what OCR noise looks like — not anything "
+              "that was typed." % len(commands), file=sys.stderr)
+        print("  skillcast reads terminals and editors. A recording of hands, "
+              "slides or a talking head has nothing for it to lift.",
+              file=sys.stderr)
+        return 1
+
     if not commands:
         print("skillcast: no commands were found on screen.", file=sys.stderr)
         print("  The recording may not show a terminal, or the scene threshold "
@@ -87,6 +103,7 @@ def main(argv=None):
             "video": str(video),
             "duration_s": round(info["duration_s"], 2),
             "frames": len(observations),
+            "screen_confidence": round(confidence, 3),
             "skill": json.loads(skill.to_json()),
             "tools": tools,
             "findings": [
@@ -103,6 +120,9 @@ def main(argv=None):
 
     print("read %s — %.0fs, %d scene changes, %d commands"
           % (video.name, info["duration_s"], len(observations), len(commands)))
+    if len(recognised) < len(commands):
+        print("  note: %d of %d commands use a program I do not recognise — "
+              "check those closely" % (len(commands) - len(recognised), len(commands)))
     print("skill: %s (%d steps)" % (skill.name, len(skill.steps)))
     for index, step in enumerate(skill.steps, 1):
         print("  %d. %s" % (index, step.title))

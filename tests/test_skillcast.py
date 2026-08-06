@@ -105,6 +105,31 @@ class CommandDetectionTest(unittest.TestCase):
     def test_prose_is_not_a_command(self):
         self.assertIsNone(looks_like_command("Now we install the dependencies"))
 
+    def test_ocr_noise_is_not_a_command(self):
+        """A hand-held phone video produced "'a" and "B" as commands, and the
+        verifier called it clean. A prompt character followed by anything was
+        passing straight through."""
+        for line in ("$ 'a", "> B", "# A ,", "$ x", "> 1", "$ ...", "# @", "$ ab"):
+            self.assertIsNone(looks_like_command(line), line)
+
+    def test_real_commands_still_survive_the_gate(self):
+        for line, expected in (
+                ("$ ls", "ls"),
+                ("$ cd my-app", "cd my-app"),
+                ("$ make", "make"),
+                ("> git status", "git status"),
+                ("$ ./scripts/build.sh --prod", "./scripts/build.sh --prod"),
+                ("$ python3 -m pytest", "python3 -m pytest")):
+            self.assertEqual(looks_like_command(line), expected, line)
+
+    def test_footage_without_a_terminal_is_recognisable(self):
+        """The signal the CLI refuses on: not one recognised program."""
+        from skillcast.extract import known_tool_commands
+        hands = [{"commands": ["Ten a", "A ,", "B x"], "lines": []}]
+        real = [{"commands": ["npm install", "cd my-app"], "lines": []}]
+        self.assertEqual(known_tool_commands(hands), [])
+        self.assertEqual(len(known_tool_commands(real)), 2)
+
     def test_bare_tool_without_arguments_is_ignored(self):
         # A lone "git" on screen is a heading or a typo, not a step.
         self.assertIsNone(looks_like_command("git"))

@@ -6,8 +6,8 @@
  * The threshold is calibrated to the same finding as the CLI — a terminal
  * advancing moves very few pixels — so it is deliberately low.
  */
-import { buildSkill, observe, renderAgents, renderClaude, renderCursor, verify }
-  from './skillcast.js';
+import { buildSkill, knownToolCommands, observe, renderAgents, renderClaude,
+  renderCursor, verify } from './skillcast.js';
 
 const el = (id) => document.getElementById(id);
 const drop = el('drop');
@@ -131,6 +131,22 @@ async function run(file, label) {
 
     const skill = buildSkill(observations, label);
     const commandCount = skill.steps.reduce((n, s) => n + s.commands.length, 0);
+
+    // Footage with no terminal still yields prompt-shaped OCR noise. Refuse it
+    // rather than showing a skill made of stray characters.
+    const recognised = knownToolCommands(observations);
+    if (commandCount && !recognised.length) {
+      setProgress(1, 'not a screen recording');
+      findingsBox.innerHTML =
+        `<div class="f error">This does not look like a screen recording. ` +
+        `${commandCount} candidate command(s) were found but not one uses a program ` +
+        `I recognise — that is what OCR noise looks like, not anything that was typed. ` +
+        `skillcast reads terminals and editors; a video of hands, slides or a talking ` +
+        `head has nothing for it to lift.</div>`;
+      result.classList.add('on');
+      output.textContent = '';
+      return;
+    }
 
     if (!commandCount) {
       setProgress(1, 'no commands found on screen');

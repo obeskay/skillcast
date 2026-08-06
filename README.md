@@ -67,8 +67,12 @@ Only one of those runs.
 ## Install
 
 ```bash
-pipx install skillcast     # or: pip install skillcast
+pip install git+https://github.com/obeskay/skillcast
 ```
+
+> The PyPI name `skillcast` is taken by an unrelated project, so the package will
+> publish as **`skillcast-cli`** — the command stays `skillcast`. Until it is on
+> PyPI, install from git as above.
 
 Requires [ffmpeg](https://ffmpeg.org) and
 [tesseract](https://github.com/tesseract-ocr/tesseract):
@@ -149,6 +153,17 @@ full of code scores 0.0001–0.002 — another order of magnitude below a bare
 terminal — so when the first pass comes back sparse for the video's length,
 skillcast retries ten times more sensitive, then falls back to interval
 sampling. It never silently returns one frame for a ten-minute tutorial.
+
+## What it needs from the recording
+
+It reads **terminals and editors**. That is the whole scope, and it is worth being
+blunt about it: a recording of hands, a phone video, slides or a talking head has
+nothing for it to lift. Point it at one and it says so rather than inventing steps
+— if not one candidate command uses a program it recognises, it refuses outright.
+
+That check exists because it once did the wrong thing: fed a phone video, it
+produced `'a` and `B` as commands and reported "no problems found". A prompt
+character followed by anything was passing straight through.
 
 ## What it does not do
 

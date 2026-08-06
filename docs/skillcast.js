@@ -50,6 +50,36 @@ export function cleanOcrLine(line) {
   return line.replace(/\s+$/, '');
 }
 
+// A program name: a word, or an explicit path. Anything else is not a command,
+// whatever preceded it on screen.
+const PROGRAM = /^(?:[A-Za-z_][\w.+-]{1,39}|\.{0,2}\/[\w./+-]+)$/;
+const MIN_COMMAND_LENGTH = 3;
+
+/**
+ * Could a shell actually run this?
+ *
+ * Added after a hand-held phone video produced "'a" and "B" as commands and the
+ * verifier reported no problems. OCR of anything that is not a terminal
+ * generates prompt-shaped noise constantly, so the program name is the gate.
+ */
+export function plausibleCommand(command) {
+  command = command.trim();
+  const parts = command.split(/\s+/);
+  if (!parts.length || !PROGRAM.test(parts[0])) return false;
+  if (command.length < MIN_COMMAND_LENGTH && !KNOWN_TOOLS.has(parts[0])) return false;
+  if (parts.length === 1 && !KNOWN_TOOLS.has(parts[0])) return false;
+  return true;
+}
+
+/**
+ * Commands whose program is one we recognise — the sharpest signal that the
+ * footage actually contains a terminal.
+ */
+export function knownToolCommands(observations) {
+  return observations.flatMap((o) => o.commands)
+    .filter((c) => KNOWN_TOOLS.has(c.split(/\s+/)[0]));
+}
+
 /**
  * Final repair applied only to text already judged to be a command. Dash runs
  * are collapsed here, not in cleanOcrLine, because output may legitimately
@@ -67,11 +97,15 @@ export function looksLikeCommand(line) {
   if (prompt) {
     const candidate = prompt.groups.cmd.trim();
     if (!candidate || OUTPUT_NOISE.test(candidate)) return null;
-    return repairCommand(candidate);
+    const repaired = repairCommand(candidate);
+    return plausibleCommand(repaired) ? repaired : null;
   }
   if (OUTPUT_NOISE.test(line)) return null;
   const parts = line.split(/\s+/);
-  if (parts.length > 1 && KNOWN_TOOLS.has(parts[0])) return repairCommand(line);
+  if (parts.length > 1 && KNOWN_TOOLS.has(parts[0])) {
+    const repaired = repairCommand(line);
+    return plausibleCommand(repaired) ? repaired : null;
+  }
   return null;
 }
 

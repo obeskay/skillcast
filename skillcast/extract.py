@@ -190,6 +190,35 @@ def ocr(image, lang="eng", psm=6):
         return produced.read_text(encoding="utf-8", errors="replace")
 
 
+# A program name: lowercase-ish word, or an explicit path. Anything that does
+# not start with one of these is not a command, whatever preceded it on screen.
+PROGRAM = re.compile(r"^(?:[A-Za-z_][\w.+-]{1,39}|\.{0,2}/[\w./+-]+)$")
+
+# Prompt-looking noise is everywhere in OCR of non-terminal footage. Requiring a
+# plausible program name is what stops "$ 'a" and "> B" becoming steps.
+MIN_COMMAND_LENGTH = 3
+
+
+def plausible_command(command):
+    """Could a shell actually run this?
+
+    Added after a hand-held phone video produced "'a" and "B" as commands, and
+    the verifier reported no problems. OCR of anything that is not a terminal
+    generates prompt-shaped noise constantly, so the program name is the gate.
+    """
+    command = command.strip()
+    parts = command.split()
+    if not parts or not PROGRAM.match(parts[0]):
+        return False
+    # "ls" and "cd" are shorter than the floor but perfectly real.
+    if len(command) < MIN_COMMAND_LENGTH and parts[0] not in KNOWN_TOOLS:
+        return False
+    # A bare program with no arguments is only credible if we know the program.
+    if len(parts) == 1 and parts[0] not in KNOWN_TOOLS:
+        return False
+    return True
+
+
 def repair_command(command):
     """Final repair pass applied only to text already judged to be a command.
 
@@ -211,12 +240,14 @@ def looks_like_command(line):
         candidate = prompt.group("cmd").strip()
         if not candidate or OUTPUT_NOISE.match(candidate):
             return None
-        return repair_command(candidate)
+        repaired = repair_command(candidate)
+        return repaired if plausible_command(repaired) else None
     if OUTPUT_NOISE.match(line):
         return None
     first = line.split()[0] if line.split() else ""
     if first in KNOWN_TOOLS and len(line.split()) > 1:
-        return repair_command(line)
+        repaired = repair_command(line)
+        return repaired if plausible_command(repaired) else None
     return None
 
 
@@ -284,6 +315,52 @@ def read_screen(video, work_dir=None, threshold=DEFAULT_SCENE_THRESHOLD,
     finally:
         if owned:
             shutil.rmtree(work, ignore_errors=True)
+
+
+# Fragments of text that indicate a technical screen: paths, flags, code
+# punctuation, known tools. Footage of hands or faces produces none of it.
+TECHNICAL_HINT = re.compile(
+    r"(^|\s)(?:--?[a-z][\w-]*|[\w.-]+/[\w./-]+|https?://|[\w-]+\.(?:json|ts|tsx|js|py|toml|ya?ml|md)"
+    r"|\{|\}|=>|;$|\(\)|import |const |def |function )", re.I)
+
+
+def known_tool_commands(observations):
+    """Commands whose program is one we actually recognise.
+
+    This is the sharpest signal that the footage contains a terminal. A phone
+    video of someone's hands produces prompt-shaped noise whose "program" is a
+    stray letter; a real screencast produces npm, git, docker, pip. Measured on
+    a genuine terminal recording every command clears this bar, and on the hand
+    video none do.
+    """
+    hits = []
+    for observation in observations:
+        for command in observation["commands"]:
+            parts = command.split()
+            if parts and parts[0] in KNOWN_TOOLS:
+                hits.append(command)
+    return hits
+
+
+def screen_confidence(observations):
+    """How much of what was read looks like a technical screen at all.
+
+    Returns 0..1. Used only as a soft warning: titles and program output push
+    this down even on a real screencast (a genuine terminal fixture scores about
+    0.18), so it is too blunt to reject on. known_tool_commands does the
+    rejecting.
+    """
+    total = technical = 0
+    for observation in observations:
+        for line in observation["lines"]:
+            stripped = line.strip()
+            if len(stripped) < 3:
+                continue
+            total += 1
+            if TECHNICAL_HINT.search(stripped) or any(
+                    stripped.split()[0] == tool for tool in KNOWN_TOOLS):
+                technical += 1
+    return (technical / total) if total else 0.0
 
 
 def dedupe_commands(observations):
