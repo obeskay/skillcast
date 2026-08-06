@@ -1,0 +1,22 @@
+{
+  "video": "tutorial.mp4",
+  "duration_s": 15,
+  "steps": 5,
+  "commands": [
+    "npm create vite@latest my-app -- --template react-ts",
+    "cd my-app",
+    "npm install",
+    "npm install -D vitest @testing-library/react",
+    "npm run test"
+  ],
+  "files": [
+    "package.json"
+  ],
+  "titles": [
+    "Set up a Vite project",
+    "Install dependencies",
+    "Add Vitest",
+    "Configure the test script",
+    "Run the tests"
+  ]
+}

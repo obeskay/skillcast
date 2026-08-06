@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Tests (Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.8", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      # The end-to-end tests read a real video, so the real tools are needed.
+      - name: Install ffmpeg and tesseract
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg tesseract-ocr
+
+      - name: Build the fixture screencast
+        run: python3 tests/make_fixture.py fixtures/
+
+      - name: Tests
+        run: python3 -m unittest discover -s tests -t . -v
+
+      - name: The CLI runs end to end
+        run: |
+          python3 -m skillcast.cli fixtures/tutorial.mp4 -o /tmp/skill --strict
+          test -f /tmp/skill/.claude/skills/*/SKILL.md
+          test -f /tmp/skill/AGENTS.md

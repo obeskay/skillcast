@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "skillcast"
+version = "0.1.0"
+description = "Turn a screencast into a skill your coding agent can run"
+readme = "README.md"
+requires-python = ">=3.8"
+authors = [{ name = "Obed Vargas" }]
+keywords = ["ai-agents", "claude-code", "cursor", "ocr", "screencast",
+            "developer-tools", "agent-skills", "video"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Topic :: Multimedia :: Video",
+  "Topic :: Software Development :: Documentation",
+]
+dependencies = []
+
+[project.scripts]
+skillcast = "skillcast.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/obeskay/skillcast"
+Issues = "https://github.com/obeskay/skillcast/issues"
+
+[tool.setuptools]
+packages = ["skillcast"]
