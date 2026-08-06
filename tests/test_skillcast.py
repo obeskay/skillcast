@@ -69,6 +69,23 @@ class OcrRepairTest(unittest.TestCase):
     def test_triple_hyphen_collapses(self):
         self.assertEqual(clean_ocr_line("npm run x ---flag"), "npm run x --flag")
 
+    def test_dash_run_before_a_space_is_repaired(self):
+        """tesseract.js read "-- --template" as "---- --template".
+
+        The CLI build read the same frame as "—- —-template". Different builds
+        disagree about how many dashes they saw, so the repair cannot assume a
+        letter follows. This shipped once as a "verified" command that could
+        never run.
+        """
+        from skillcast.extract import looks_like_command
+        self.assertEqual(
+            looks_like_command("$ npm create vite@latest my-app ---- --template react-ts"),
+            "npm create vite@latest my-app -- --template react-ts")
+
+    def test_decorative_separator_is_not_treated_as_a_command(self):
+        from skillcast.extract import looks_like_command
+        self.assertIsNone(looks_like_command("--------------------"))
+
 
 class CommandDetectionTest(unittest.TestCase):
     def test_prompt_forms(self):
@@ -167,6 +184,14 @@ class VerifyTest(unittest.TestCase):
     def test_unbalanced_quote_is_an_error(self):
         skill = sample_skill(steps=[Step("Commit", commands=['git commit -m "oops'])])
         self.assertIn("CMD002", self.codes(skill))
+
+    def test_hyphen_run_is_an_error_not_a_warning(self):
+        """It once passed as "no problems found" over an unrunnable command."""
+        skill = sample_skill(steps=[Step("Create", commands=["npm init ---- --yes"]),
+                                    Step("Run", commands=["npm test"])])
+        findings, _ = verify(skill)
+        self.assertIn("CMD004", {f.code for f in findings})
+        self.assertIn("CMD004", {f.code for f in findings if f.level == "error"})
 
     def test_leftover_em_dash_is_an_error(self):
         """A surviving em dash means the flag will not run."""

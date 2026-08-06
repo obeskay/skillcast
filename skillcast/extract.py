@@ -190,6 +190,17 @@ def ocr(image, lang="eng", psm=6):
         return produced.read_text(encoding="utf-8", errors="replace")
 
 
+def repair_command(command):
+    """Final repair pass applied only to text already judged to be a command.
+
+    Dash runs are collapsed here rather than in clean_ocr_line because a line of
+    output may legitimately be a "-------" separator, while no CLI flag has ever
+    taken three hyphens. Different tesseract builds disagree about how many
+    dashes they saw, so "-- --template" comes back as "----" as often as "---".
+    """
+    return re.sub(r"-{3,}", "--", command)
+
+
 def looks_like_command(line):
     """Is this line something a human typed, rather than something printed?"""
     line = line.strip()
@@ -198,12 +209,14 @@ def looks_like_command(line):
     prompt = PROMPT.match(line)
     if prompt:
         candidate = prompt.group("cmd").strip()
-        return candidate if candidate and not OUTPUT_NOISE.match(candidate) else None
+        if not candidate or OUTPUT_NOISE.match(candidate):
+            return None
+        return repair_command(candidate)
     if OUTPUT_NOISE.match(line):
         return None
     first = line.split()[0] if line.split() else ""
     if first in KNOWN_TOOLS and len(line.split()) > 1:
-        return line
+        return repair_command(line)
     return None
 
 

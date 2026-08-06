@@ -204,4 +204,4 @@ with a link to a public video are the most useful thing you can file.
 
 ---
 
-Copyright (c) 2026 Obed Vargas. See [NOTICE.md](NOTICE.md).
+MIT — see [LICENSE](LICENSE). Contributions welcome.

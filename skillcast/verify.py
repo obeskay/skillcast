@@ -97,11 +97,16 @@ def check_commands(skill):
                     "%s still contains a typographic dash: %r" % (where, stripped[:60]),
                     "OCR renders '--' as an em dash. This flag will not run."))
 
-            if re.search(r"(?<!-)-{3,}[A-Za-z]", stripped):
+            # No CLI accepts three consecutive hyphens. This has to be an
+            # error, not a warning: it shipped once as "no problems found"
+            # over a command that could never run.
+            if re.search(r"-{3,}", stripped):
                 findings.append(Finding(
-                    "warn", "CMD004",
-                    "%s has a flag with three or more hyphens: %r"
-                    % (where, stripped[:60])))
+                    "error", "CMD004",
+                    "%s has a run of three or more hyphens: %r"
+                    % (where, stripped[:60]),
+                    "OCR disagreed with itself about how many dashes it saw. "
+                    "No flag takes three."))
 
             key = " ".join(stripped.split())
             if key in seen:

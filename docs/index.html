@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>skillcast — turn a screencast into a skill your agent can run</title>
+<meta name="description" content="Drop in a tutorial video. Get a SKILL.md your coding agent can actually run. Runs entirely in your browser — the video never leaves your machine.">
+<link rel="canonical" href="https://obeskay.github.io/skillcast/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="skillcast — turn a screencast into a skill your agent can run">
+<meta property="og:description" content="Reads the screen, not the transcript. Runs entirely in your browser.">
+<meta property="og:url" content="https://obeskay.github.io/skillcast/">
+<meta property="og:image" content="https://raw.githubusercontent.com/obeskay/skillcast/main/assets/demo.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://raw.githubusercontent.com/obeskay/skillcast/main/assets/demo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#090d16; --panel:#0d1117; --line:#232a38; --line-soft:#1a2030;
+    --text:#e6e9f0; --muted:#8b949e; --dim:#5a6270;
+    --accent:#7ee787; --blue:#58a6ff; --amber:#f59e0b; --red:#ff7b72;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--bg);color:var(--text);font-family:Inter,-apple-system,'Segoe UI',sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+  code,pre,.mono{font-family:'JetBrains Mono',ui-monospace,Menlo,monospace}
+
+  header{padding:76px 0 44px;text-align:center}
+  h1{font-size:clamp(2.4rem,6vw,3.6rem);font-weight:800;letter-spacing:-.03em;line-height:1.05}
+  .tag{color:var(--muted);font-size:clamp(1.05rem,2.4vw,1.3rem);margin-top:16px;max-width:640px;margin-inline:auto}
+  .tag b{color:var(--accent);font-weight:600}
+  .links{display:flex;gap:12px;justify-content:center;margin-top:28px;flex-wrap:wrap}
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:11px 20px;border-radius:9px;font-size:14px;font-weight:600;text-decoration:none;border:1px solid var(--line);color:var(--text);background:#111726;transition:.18s}
+  .btn:hover{transform:translateY(-1px);border-color:#3d4762}
+  .btn.primary{background:var(--accent);color:#06240f;border-color:var(--accent)}
+  .btn.primary:hover{background:#95f09b}
+
+  .idea{border-top:1px solid var(--line-soft);border-bottom:1px solid var(--line-soft);padding:34px 0;margin:8px 0 44px}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  .col{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:18px 20px}
+  .col h3{font-size:12px;letter-spacing:.11em;text-transform:uppercase;color:var(--dim);font-weight:600;margin-bottom:9px}
+  .col p{font-size:15px;color:var(--muted)}
+  .col.win{border-color:#2b4a33}
+  .col.win p{color:var(--accent);font-family:'JetBrains Mono',monospace;font-size:14px}
+  .verdict{text-align:center;color:var(--muted);margin-top:18px;font-size:15px}
+
+  .demo{background:var(--panel);border:1px solid var(--line);border-radius:15px;padding:30px;margin-bottom:20px}
+  .demo h2{font-size:21px;font-weight:700;margin-bottom:6px}
+  .demo .note{color:var(--muted);font-size:14px;margin-bottom:20px}
+  .drop{border:2px dashed #2b3446;border-radius:12px;padding:40px 22px;text-align:center;cursor:pointer;transition:.18s;background:#0a0e18}
+  .drop:hover,.drop.over{border-color:var(--accent);background:#0c1520}
+  .drop strong{display:block;font-size:16px;margin-bottom:6px}
+  .drop span{color:var(--dim);font-size:13.5px}
+  .or{text-align:center;color:var(--dim);font-size:13px;margin:14px 0}
+  .sample{display:block;margin:0 auto;background:none;border:1px solid var(--line);color:var(--blue);padding:9px 18px;border-radius:8px;cursor:pointer;font-size:13.5px;font-weight:500;font-family:inherit}
+  .sample:hover{border-color:var(--blue)}
+
+  .progress{display:none;margin-top:22px}
+  .progress.on{display:block}
+  .bar{height:5px;background:#161c28;border-radius:3px;overflow:hidden}
+  .bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
+  .status{font-size:13px;color:var(--muted);margin-top:10px;font-family:'JetBrains Mono',monospace}
+  .thumbs{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+  .thumbs img{width:104px;border:1px solid var(--line);border-radius:5px}
+
+  .result{display:none;margin-top:24px}
+  .result.on{display:block}
+  .tabs{display:flex;gap:6px;margin-bottom:-1px;flex-wrap:wrap}
+  .tab{padding:9px 15px;border:1px solid var(--line);border-bottom:none;border-radius:8px 8px 0 0;background:#0a0e18;color:var(--muted);cursor:pointer;font-size:12.5px;font-family:'JetBrains Mono',monospace}
+  .tab.on{background:#0f1520;color:var(--accent);border-color:var(--line)}
+  .out{border:1px solid var(--line);border-radius:0 10px 10px 10px;background:#0f1520;padding:18px;max-height:440px;overflow:auto}
+  .out pre{font-size:13px;color:#c9d1d9;white-space:pre-wrap;word-break:break-word}
+  .acts{display:flex;gap:9px;margin-top:14px;flex-wrap:wrap}
+  .findings{margin-top:14px;font-size:13.5px}
+  .f{padding:8px 12px;border-radius:7px;margin-bottom:6px;font-family:'JetBrains Mono',monospace;font-size:12.5px}
+  .f.error{background:#2a1215;color:var(--red);border:1px solid #4a1f22}
+  .f.ok{background:#0f2417;color:var(--accent);border:1px solid #1f4a2b}
+
+  section{padding:40px 0;border-top:1px solid var(--line-soft)}
+  h2.sec{font-size:26px;font-weight:700;margin-bottom:8px;letter-spacing:-.02em}
+  .lead{color:var(--muted);margin-bottom:22px}
+  table{width:100%;border-collapse:collapse;font-size:14.5px}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line-soft)}
+  th{color:var(--dim);font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;font-weight:600}
+  td.n{font-family:'JetBrains Mono',monospace;color:var(--accent)}
+  td.bad{color:var(--amber)}
+  pre.block{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px;overflow-x:auto;font-size:13.5px;color:#c9d1d9}
+  footer{padding:40px 0 60px;text-align:center;color:var(--dim);font-size:14px;border-top:1px solid var(--line-soft)}
+  footer a{color:var(--muted)}
+  @media(max-width:720px){.cols{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <h1>skillcast</h1>
+    <p class="tag">Feed it a tutorial video. Get a skill your coding agent can <b>actually run</b>.</p>
+    <div class="links">
+      <a class="btn primary" href="#try">Try it in your browser</a>
+      <a class="btn" href="https://github.com/obeskay/skillcast">GitHub</a>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="idea">
+    <div class="cols">
+      <div class="col">
+        <h3>What the narration says</h3>
+        <p>“…and now we'll add the test runner and the testing library.”</p>
+      </div>
+      <div class="col win">
+        <h3>What the screen says</h3>
+        <p>npm install -D vitest @testing-library/react</p>
+      </div>
+    </div>
+    <p class="verdict">Only one of those runs. Every video-to-text tool reaches for the transcript —
+      the half that loses the executable truth. <strong>skillcast reads the screen.</strong></p>
+  </div>
+
+  <div class="demo" id="try">
+    <h2>Try it now</h2>
+    <p class="note">Runs entirely in your browser with tesseract.js. Your video is never uploaded —
+      there is no server to upload it to.</p>
+
+    <div class="drop" id="drop">
+      <strong>Drop a screen recording here</strong>
+      <span>mp4, webm or mov · or click to choose</span>
+      <input type="file" id="file" accept="video/*" hidden>
+    </div>
+    <p class="or">or</p>
+    <button class="sample" id="sample">Use the 18-second sample tutorial</button>
+
+    <div class="progress" id="progress">
+      <div class="bar"><i id="fill"></i></div>
+      <p class="status" id="status">starting…</p>
+      <div class="thumbs" id="thumbs"></div>
+    </div>
+
+    <div class="result" id="result">
+      <div class="tabs">
+        <button class="tab on" data-t="claude">SKILL.md</button>
+        <button class="tab" data-t="cursor">.cursor/rules</button>
+        <button class="tab" data-t="agents">AGENTS.md</button>
+      </div>
+      <div class="out"><pre id="output"></pre></div>
+      <div class="findings" id="findings"></div>
+      <div class="acts">
+        <button class="btn" id="copy">Copy</button>
+        <button class="btn" id="download">Download</button>
+      </div>
+    </div>
+  </div>
+
+  <section>
+    <h2 class="sec">How well it holds up</h2>
+    <p class="lead">Measured against a fixture whose contents are known exactly, degraded on purpose.
+      Recall is exact-match, not similarity.</p>
+    <table>
+      <thead><tr><th>Recording</th><th>Recall</th></tr></thead>
+      <tbody>
+        <tr><td>720p terminal, large type</td><td class="n">5/5</td></tr>
+        <tr><td>Re-encoded at 360p, crf 30</td><td class="n">5/5</td></tr>
+        <tr><td>Heavy noise added</td><td class="n">5/5</td></tr>
+        <tr><td>IDE-style, 22px type amid code</td><td class="n">4/5</td></tr>
+        <tr><td>IDE-style, 16px type amid code</td><td class="n">4/5</td></tr>
+        <tr><td>IDE-style, 13px type</td><td class="bad">2/5</td></tr>
+        <tr><td>IDE-style, 11px type</td><td class="bad">1/5</td></tr>
+      </tbody>
+    </table>
+    <p class="lead" style="margin-top:18px">Compression barely matters. <strong>Type size does.</strong>
+      Below roughly 16px the OCR starts dropping commands and no threshold rescues it — so that limit is
+      published rather than left to be discovered.</p>
+  </section>
+
+  <section>
+    <h2 class="sec">Install the real thing</h2>
+    <p class="lead">The browser demo is the same logic, ported. The CLI is faster, handles long
+      recordings, and writes the files where your agent already looks.</p>
+    <pre class="block">pip install skillcast
+brew install ffmpeg tesseract     # or: apt install ffmpeg tesseract-ocr
+
+skillcast tutorial.mp4</pre>
+    <p class="lead" style="margin-top:16px">No API key. No model download. Fully offline.</p>
+  </section>
+</div>
+
+<footer>
+  <div class="wrap">
+    MIT licensed · <a href="https://github.com/obeskay/skillcast">github.com/obeskay/skillcast</a><br>
+    <span style="font-size:13px">Contributions welcome — especially issues with a link to a public video that breaks it.</span>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
+<script type="module" src="./app.js"></script>
+</body>
+</html>
