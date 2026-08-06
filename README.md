@@ -2,6 +2,12 @@
 
 **Feed it a tutorial video. Get a skill your coding agent can actually run.**
 
+### [→ Try it in your browser](https://obeskay.github.io/skillcast/)
+
+No install, no upload. The demo runs the same extraction client-side with
+tesseract.js — your video never leaves your machine, because there is no server
+for it to go to.
+
 ![skillcast: screen recording in, SKILL.md out](assets/demo.png)
 
 ```bash
