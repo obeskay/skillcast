@@ -123,6 +123,49 @@ def scene_frames(video, out_dir, threshold=DEFAULT_SCENE_THRESHOLD,
     return frames
 
 
+# How much video may pass between captured frames before the detection is
+# assumed to have missed steps.
+SPARSE_SECONDS = 12.0
+
+
+def adaptive_frames(video, out_dir, threshold=DEFAULT_SCENE_THRESHOLD,
+                    max_frames=120):
+    """Find scene changes, lowering the bar when the footage is subtle.
+
+    A single command appearing in a screen already full of code moves a tiny
+    fraction of the pixels. Measured on a dense IDE recording, those cuts score
+    0.0001-0.002 -- another order of magnitude below a bare terminal, and far
+    under any sane default. Fixing that by lowering the global default would
+    flood ordinary recordings with compression noise instead.
+
+    So the threshold adapts: try, and if the result is sparse for the video's
+    length, try again ten times more sensitive. If detection still finds almost
+    nothing, fall back to sampling on a fixed interval, which is worse but never
+    silently returns one frame for a ten-minute tutorial.
+    """
+    duration = probe(video).get("duration_s") or 0
+    attempts = []
+    current = threshold
+    for _ in range(3):
+        work = Path(out_dir) / ("t%s" % str(current).replace(".", "_"))
+        frames = scene_frames(video, work, threshold=current, max_frames=max_frames)
+        attempts.append((current, frames))
+        # Enough coverage for the running time? Then stop.
+        if not duration or len(frames) >= duration / SPARSE_SECONDS:
+            return frames, {"mode": "scene", "threshold": current}
+        current /= 10.0
+
+    # Detection stayed sparse. Sample on an interval instead.
+    threshold_used, frames = max(attempts, key=lambda a: len(a[1]))
+    if duration and len(frames) < duration / SPARSE_SECONDS:
+        every = max(2.0, duration / min(max_frames, 40))
+        sampled = scene_frames(video, Path(out_dir) / "interval",
+                               max_frames=max_frames, every=every)
+        if len(sampled) > len(frames):
+            return sampled, {"mode": "interval", "every_s": round(every, 1)}
+    return frames, {"mode": "scene", "threshold": threshold_used}
+
+
 def ocr(image, lang="eng", psm=6):
     """Read text off one frame.
 
@@ -202,7 +245,7 @@ def read_screen(video, work_dir=None, threshold=DEFAULT_SCENE_THRESHOLD,
     owned = work_dir is None
     work = Path(work_dir or tempfile.mkdtemp(prefix="skillcast-"))
     try:
-        frames = scene_frames(video, work / "frames", threshold, max_frames)
+        frames, strategy = adaptive_frames(video, work / "frames", threshold, max_frames)
         observations = []
         for index, frame in enumerate(frames):
             text = ocr(frame, lang=lang)
@@ -216,6 +259,7 @@ def read_screen(video, work_dir=None, threshold=DEFAULT_SCENE_THRESHOLD,
                 paths.extend(PATH_LIKE.findall(line))
                 urls.extend(URL_LIKE.findall(line))
             observations.append({
+                "strategy": strategy,
                 "frame": index,
                 "file": str(frame),
                 "lines": lines,

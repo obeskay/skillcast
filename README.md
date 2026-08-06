@@ -117,6 +117,33 @@ So nothing ships unverified:
 This proves the skill is loadable, runnable and not obviously dangerous. It does
 not prove the tutorial was right.
 
+## How well it holds up
+
+Measured on the fixture, degraded on purpose. Recall is exact-match against
+known ground truth:
+
+| Recording | Recall |
+|---|---|
+| 720p terminal, large type | 5/5 |
+| Re-encoded at 360p, crf 30 | 5/5 |
+| Heavy noise added | 5/5 |
+| IDE-style, 22px type amid code | 4/5 |
+| IDE-style, 16px type amid code | 4/5 |
+| IDE-style, 13px type | 2/5 |
+| IDE-style, 11px type | 1/5 |
+
+Compression barely matters; **type size does**. Below roughly 16px of on-screen
+text the OCR starts dropping commands, and no scene threshold rescues it.
+
+If you control the recording: record at 1080p or above, and bump the terminal
+font. If you do not, expect to review the output rather than trust it.
+
+Detection adapts on its own. A single command appearing in a screen already
+full of code scores 0.0001–0.002 — another order of magnitude below a bare
+terminal — so when the first pass comes back sparse for the video's length,
+skillcast retries ten times more sensitive, then falls back to interval
+sampling. It never silently returns one frame for a ten-minute tutorial.
+
 ## What it does not do
 
 - It does not transcribe audio. The screen is the source of truth here; adding
