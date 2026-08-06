@@ -207,6 +207,60 @@ drop.addEventListener('drop', (e) => {
   if (file) run(file, file.name);
 });
 
+/**
+ * Reading a link in the browser.
+ *
+ * A direct video file with permissive CORS can be fetched and processed here.
+ * YouTube cannot: it sends no CORS headers, so the browser refuses the response
+ * before any of our code runs. No amount of client-side work changes that, and
+ * pretending otherwise would waste the visitor's time — so when the fetch is
+ * refused, hand over the exact CLI command instead.
+ */
+const urlNote = el('urlnote');
+
+function showCommand(url, reason) {
+  const safe = url.replace(/"/g, '');
+  urlNote.innerHTML =
+    `${reason} The CLI has no such limit — it uses yt-dlp:` +
+    `<code>skillcast "${safe}"</code>`;
+  urlNote.classList.add('on');
+}
+
+async function readUrl() {
+  const url = el('url').value.trim();
+  urlNote.classList.remove('on');
+  if (!url) return;
+  if (!/^https?:\/\//i.test(url)) {
+    urlNote.textContent = 'That does not look like a URL.';
+    urlNote.classList.add('on');
+    return;
+  }
+
+  // Sites that never allow cross-origin reads: say so without a doomed request.
+  if (/youtube\.com|youtu\.be|vimeo\.com|loom\.com|twitch\.tv|dailymotion/i.test(url)) {
+    showCommand(url, 'Browsers cannot download from that site — it sends no CORS headers, so the request is blocked before this page sees it.');
+    return;
+  }
+
+  setProgress(0.02, 'fetching the video…');
+  try {
+    const response = await fetch(url, { mode: 'cors' });
+    if (!response.ok) throw new Error(`the server answered ${response.status}`);
+    const blob = await response.blob();
+    if (!/^video\//.test(blob.type) && !/\.(mp4|webm|mov|mkv)$/i.test(url)) {
+      throw new Error('that URL did not return a video');
+    }
+    progress.classList.remove('on');
+    run(blob, url.split('/').pop() || url);
+  } catch (error) {
+    progress.classList.remove('on');
+    showCommand(url, `The browser refused that request (${error.message}).`);
+  }
+}
+
+el('fetch').addEventListener('click', readUrl);
+el('url').addEventListener('keydown', (e) => { if (e.key === 'Enter') readUrl(); });
+
 el('sample').addEventListener('click', async () => {
   setProgress(0.01, 'fetching the sample…');
   const response = await fetch('./tutorial.mp4');

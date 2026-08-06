@@ -88,12 +88,31 @@ No API key. No model download. The default path is fully offline and finishes a
 ## Use
 
 ```bash
+skillcast https://youtube.com/watch?v=...   # paste a link
+skillcast demo.mp4                          # or a local file
 skillcast demo.mp4                          # all three formats into ./skill
 skillcast demo.mp4 --target claude          # just the Claude Code skill
 skillcast demo.mp4 --dry-run                # show what was read, write nothing
 skillcast demo.mp4 --json                   # machine-readable
 skillcast demo.mp4 --threshold 0.005        # find more steps in a subtle recording
 ```
+
+### Links
+
+A URL works anywhere a path does — YouTube, Vimeo, Loom, or a direct `.mp4`.
+It needs [yt-dlp](https://github.com/yt-dlp/yt-dlp) (`pip install yt-dlp`) and
+downloads at 720p, which is plenty for OCR and far quicker.
+
+YouTube blocks anonymous downloads in waves. When it does, the error says so and
+gives you the way through rather than looking like a broken link:
+
+```bash
+skillcast "https://youtube.com/watch?v=..." --cookies-from-browser chrome
+```
+
+The browser demo can only fetch URLs that allow cross-origin reads, which
+YouTube does not — there it hands you the CLI command instead of failing
+silently.
 
 ### Output
 

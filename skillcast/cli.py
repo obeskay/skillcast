@@ -9,11 +9,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import sys
 from pathlib import Path
 
 from . import __version__
 from .emit import TARGETS, write
+from .fetch import FetchError, download, looks_like_url
 from .extract import (DEFAULT_SCENE_THRESHOLD, ExtractionError, dedupe_commands,
                       known_tool_commands, probe, read_screen,
                       screen_confidence)
@@ -27,7 +29,9 @@ def build_parser():
     parser = argparse.ArgumentParser(
         prog="skillcast",
         description="Turn a screencast into a skill your coding agent can run.")
-    parser.add_argument("video", help="path to a screen recording")
+    parser.add_argument("video",
+                        help="path to a screen recording, or a video URL "
+                             "(YouTube, Vimeo, Loom — anything yt-dlp handles)")
     parser.add_argument("-o", "--out", default="skill",
                         help="output directory (default: ./skill)")
     parser.add_argument("--target", action="append", choices=sorted(TARGETS),
@@ -45,6 +49,9 @@ def build_parser():
     parser.add_argument("--json", action="store_true", help="machine-readable output")
     parser.add_argument("--strict", action="store_true",
                         help="treat warnings as failures")
+    parser.add_argument("--cookies-from-browser", metavar="BROWSER",
+                        help="reuse a browser's session when a site blocks "
+                             "anonymous downloads (chrome, firefox, safari, edge)")
     parser.add_argument("--check-tools", action="store_true",
                         help="also report commands not available on this PATH")
     parser.add_argument("--version", action="version", version="skillcast " + __version__)
@@ -53,10 +60,28 @@ def build_parser():
 
 def main(argv=None):
     args = build_parser().parse_args(argv)
-    video = Path(args.video)
-    if not video.exists():
-        print("skillcast: %s does not exist" % video, file=sys.stderr)
-        return 2
+
+    # Pasting a link is the obvious thing to try, so accept it.
+    downloaded_to = None
+    source_label = None
+    if looks_like_url(args.video):
+        try:
+            video, info = download(
+                args.video,
+                cookies_from_browser=args.cookies_from_browser,
+                on_progress=lambda m: print("skillcast: %s" % m))
+        except FetchError as error:
+            print("skillcast: %s" % error, file=sys.stderr)
+            return 2
+        downloaded_to = video.parent
+        source_label = info.get("title") or args.video
+        print("skillcast: got %s (%.1f MB)"
+              % (video.name, video.stat().st_size / 1e6))
+    else:
+        video = Path(args.video)
+        if not video.exists():
+            print("skillcast: %s does not exist" % video, file=sys.stderr)
+            return 2
 
     try:
         info = probe(video)
@@ -89,8 +114,8 @@ def main(argv=None):
               "may be too high — try --threshold 0.005.", file=sys.stderr)
         return 1
 
-    skill = build_skill(observations, source=video.name,
-                        name=args.name, title=args.title)
+    skill = build_skill(observations, source=source_label or video.name,
+                        name=args.name, title=args.title or source_label)
     findings, tools = verify(skill, check_availability=args.check_tools)
     findings += shellcheck(skill)
 
@@ -151,6 +176,8 @@ def main(argv=None):
     for path in written:
         print("  wrote %s" % path)
     print("\nRead the commands before running them. OCR is good, not perfect.")
+    if downloaded_to:
+        shutil.rmtree(downloaded_to, ignore_errors=True)
     return 0
 
 
