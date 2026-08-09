@@ -331,6 +331,8 @@ Early. The extraction core is tested and the output has been loaded by a real
 agent, but it has been exercised on a narrow set of recordings so far. Issues
 with a link to a public video are the most useful thing you can file.
 
+What the first live runs broke and taught: [docs/learnings.md](docs/learnings.md).
+
 ### Roadmap
 
 Computer-use replay for guide skills is future work; skillcast currently records
