@@ -20,6 +20,7 @@ from .extract import (DEFAULT_SCENE_THRESHOLD, ExtractionError, dedupe_commands,
                       known_tool_commands, probe, read_screen,
                       screen_confidence)
 from .narrate import fetch_subtitles, load_sidecar
+from .replay import ReplayError, replay
 from .route import RouteError, run_route
 from .synth import build_guide_skill, build_skill
 from .verify import shellcheck, shellcheck_available, verify
@@ -135,10 +136,71 @@ def route_main(argv):
     return 0 if not result["failures"] else 1
 
 
+def build_replay_parser():
+    from .replay import (DEFAULT_CHECKPOINT_MS, DEFAULT_GRACE_MS,
+                         DEFAULT_PACE_MS)
+    parser = argparse.ArgumentParser(
+        prog="skillcast replay",
+        description="Turn a guide skill into a Peekaboo replay script that "
+                    "presses the keys the narrator pressed, paced as recorded.")
+    parser.add_argument("source",
+                        help="a skill.json, or the directory skillcast wrote")
+    parser.add_argument("-o", "--out",
+                        help="script path (default: ./<skill-name>.peekaboo.json)")
+    parser.add_argument("--pace-ms", type=int, default=DEFAULT_PACE_MS,
+                        help="pause after each keyed step (default: %(default)s)")
+    parser.add_argument("--checkpoint-ms", type=int, default=DEFAULT_CHECKPOINT_MS,
+                        help="pause at keyless steps, which are manual "
+                             "checkpoints (default: %(default)s)")
+    parser.add_argument("--grace-ms", type=int, default=DEFAULT_GRACE_MS,
+                        help="lead-in so you can focus the target app "
+                             "(default: %(default)s)")
+    parser.add_argument("--run", action="store_true",
+                        help="execute now via peekaboo — sends real keystrokes "
+                             "to the frontmost app")
+    parser.add_argument("--json", action="store_true", help="machine-readable output")
+    return parser
+
+
+def replay_main(argv):
+    args = build_replay_parser().parse_args(argv)
+    try:
+        result = replay(args.source, out=args.out, pace_ms=args.pace_ms,
+                        checkpoint_ms=args.checkpoint_ms, grace_ms=args.grace_ms,
+                        execute=args.run)
+    except ReplayError as error:
+        print("skillcast: %s" % error, file=sys.stderr)
+        return 2
+    if args.json:
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+        report = result.get("report") or {}
+        return 0 if report.get("success", True) else 1
+    print("replay pack: %s" % result["script"])
+    print("  %d keystroke(s), %d manual checkpoint(s) — from %s"
+          % (result["hotkeys"], result["checkpoints"], result["skill"]))
+    if args.run:
+        report = result.get("report") or {}
+        data = report.get("data") or {}
+        print("  peekaboo: %d/%d steps ok"
+              % (data.get("completedSteps", 0), data.get("totalSteps", 0)))
+        if not report.get("success", bool(data)):
+            print("  the pack did not finish — check peekaboo's permissions",
+                  file=sys.stderr)
+            return 1
+    else:
+        print("\nFocus the app the tutorial uses, then:")
+        print("  peekaboo run %s --no-remote" % result["script"])
+        print("Steps without keys are pauses for you to click along — the "
+              "script paces, you click.")
+    return 0
+
+
 def main(argv=None):
     raw_argv = list(sys.argv[1:] if argv is None else argv)
     if raw_argv and raw_argv[0] == "route":
         return route_main(raw_argv[1:])
+    if raw_argv and raw_argv[0] == "replay":
+        return replay_main(raw_argv[1:])
     args = build_parser().parse_args(raw_argv)
 
     # Pasting a link is the obvious thing to try, so accept it.

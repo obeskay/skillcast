@@ -210,6 +210,29 @@ Learn this route: 01-blender-basics/.claude/skills/blender-basics/SKILL.md, \
 02-model-a-flower/.claude/skills/model-a-flower/SKILL.md in order.
 ```
 
+## Replay packs (early, macOS only)
+
+A guide's shortcuts are literal keystrokes, so skillcast can hand them back to
+your machine. `skillcast replay ./skill` writes `<name>.peekaboo.json`: every
+shortcut becomes a Peekaboo hotkey step, and every keyless step becomes a
+pause — a checkpoint where you do the clicking the narrator showed — paced the
+way the video paced them.
+
+```bash
+skillcast replay ./skill --pace-ms 5000
+peekaboo run model-a-flower.peekaboo.json --no-remote
+```
+
+Needs [Peekaboo](https://github.com/steipete/peekaboo) (`brew install
+steipede/tap/peekaboo`) with its macOS permissions granted. `--run` executes
+immediately — real keystrokes into the frontmost app, so focus the right one
+first. The script shape is what installed Peekaboo builds (3.0.0) actually
+decode; it was probed live, not copied from docs.
+
+It presses the keys the narrator pressed. It does not click: nothing about a
+recording tells it where your buttons are. That is why checkpoints pause
+instead of guess.
+
 ## How well it holds up
 
 Measured on the fixture, degraded on purpose. Recall is exact-match against
@@ -253,8 +276,8 @@ character followed by anything was passing straight through.
 - It does not turn narration into executable commands. Commands must be visible
   on screen and pass the same recognition gate as before.
 - It does not verify that the commands work. It verifies they are well-formed.
-- It does not replay a guide. A guide points your agent to the narrated parts
-  and visible labels; computer-use replay is future work.
+- It does not click during replay. Packs press the keys the narration named;
+  where your buttons are is yours to know.
 - OCR is good, not perfect. Read the commands before running them — the output
   says so too.
 
@@ -280,6 +303,7 @@ Nothing connects them.
 ```
 video ─► scene detection ─► OCR ─► commands + narration ─► skill ─► verify ─► emit
 playlist ─► ordered videos ─► skills ─► ROUTE.md
+guide ─► replay pack ─► peekaboo (the keys the narrator pressed)
 ```
 
 One detail worth stealing if you build something similar: **screencasts need a
