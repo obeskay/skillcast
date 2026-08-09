@@ -335,8 +335,9 @@ What the first live runs broke and taught: [docs/learnings.md](docs/learnings.md
 
 ### Roadmap
 
-Computer-use replay for guide skills is future work; skillcast currently records
-what the tutorial teaches without pretending it can replay clicks.
+Replay packs (v0.3.0) press the keys the narrator pressed. What remains is the
+clicking: resolving on-screen evidence to live UI elements on your machine,
+so a replay can act where the tutorial acted instead of pacing while you do.
 
 ---
 
