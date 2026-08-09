@@ -2,6 +2,8 @@
 
 **Feed it a tutorial video. Get a skill your coding agent can actually run.**
 
+![skillcast: video in — skill out](assets/cover.png)
+
 ### [→ Try it in your browser](https://skillcast.cloud.obeskay.com)
 
 No install, no upload. The demo runs the same extraction client-side with
@@ -48,10 +50,11 @@ The **narration** carries intent — *"now we'll add the test runner"*. The
 Every video-to-text tool reaches for the transcript, and the transcript is the
 half that loses the executable truth. Nobody types package names out loud.
 
-skillcast reads the screen instead. Scene detection finds the moments the
-screen changed, OCR lifts the text off those frames, and narrow heuristics
-decide what was typed versus what was printed. The commands in the output are
-the literal characters that were on screen.
+skillcast reads both. Scene detection finds the moments the screen changed,
+OCR lifts the text off those frames, and narrow heuristics decide what was
+typed versus what was printed. When a subtitle track is available, its
+narration is aligned to those same moments as context. Commands in the output
+are still the literal characters that were on screen.
 
 ## Why not just use a transcript
 
@@ -95,6 +98,8 @@ skillcast demo.mp4 --target claude          # just the Claude Code skill
 skillcast demo.mp4 --dry-run                # show what was read, write nothing
 skillcast demo.mp4 --json                   # machine-readable
 skillcast demo.mp4 --threshold 0.005        # find more steps in a subtle recording
+skillcast demo.mp4 --narration               # use a local subtitle sidecar
+skillcast demo.mp4 --no-narration            # screen-only extraction
 ```
 
 ### Links
@@ -102,6 +107,11 @@ skillcast demo.mp4 --threshold 0.005        # find more steps in a subtle record
 A URL works anywhere a path does — YouTube, Vimeo, Loom, or a direct `.mp4`.
 It needs [yt-dlp](https://github.com/yt-dlp/yt-dlp) (`pip install yt-dlp`) and
 downloads at 720p, which is plenty for OCR and far quicker.
+
+For a URL, skillcast asks yt-dlp for English subtitles first, then the video's
+available language if English is not present. Missing subtitles are fine. For
+a local file, put `video.vtt` or `video.srt` beside `video.mp4`; local videos
+without that sidecar stay screen-only unless a sidecar is present.
 
 YouTube blocks anonymous downloads in waves. When it does, the error says so and
 gives you the way through rather than looking like a broken link:
@@ -146,6 +156,60 @@ So nothing ships unverified:
 This proves the skill is loadable, runnable and not obviously dangerous. It does
 not prove the tutorial was right.
 
+## Narration and guide skills
+
+Narration is enrichment for a terminal tutorial: each step can carry a short
+quoted subtitle note with its video timestamp. The command remains the
+backbone, so prose never becomes an invented shell instruction.
+
+If a tutorial has no commands but does have subtitles, skillcast emits a guide
+with `kind: guide`. Chapters become steps when the video supplies them;
+otherwise the narration is grouped into roughly 60–90 second sections. Each
+section records what was said, what text was visible on screen, and explicit
+shortcuts such as `Ctrl+S` or “press G”. A guide tells your agent what the
+tutorial teaches and where to look. It does not replay clicks or operate the
+computer.
+
+Two honest limits, learned on real Blender tutorials. YouTube's auto-captions
+arrive as rolling windows that repeat every sentence; skillcast strips the
+overlap before aligning anything, or guides read tripled. And on a 720p
+software viewport most labels are too small to read — on-screen evidence must
+contain a real interface word to earn its place, so many guides are
+narration-plus-shortcuts only, and say so.
+
+## Learning routes
+
+Pass a playlist when the goal is a sequence rather than one skill:
+
+```bash
+skillcast route "https://www.youtube.com/playlist?list=..." \
+  "learn Blender from the basics" --sort general-first --limit 8
+```
+
+The curator's order is kept by default. `general-first` applies a stable title
+heuristic that moves introductions and fundamentals earlier and advanced or
+masterclass videos later. Each video is processed independently, so a failed
+video is recorded in `ROUTE.md` while the rest of the route continues. A
+real-shaped route looks like this:
+
+```text
+# learn blender from the basics
+
+## Curriculum
+
+1. Blender basics — 12m 04s (cumulative 12m 04s)
+   What you'll be able to do: Blender interface overview
+   Skill: [SKILL.md](01-blender-basics/.claude/skills/blender-basics/SKILL.md)
+2. Model a flower — 18m 22s (cumulative 30m 26s)
+   What you'll be able to do: Create the first petals
+   Skill: [SKILL.md](02-model-a-flower/.claude/skills/model-a-flower/SKILL.md)
+
+## Give this route to your agent
+
+Learn this route: 01-blender-basics/.claude/skills/blender-basics/SKILL.md, \
+02-model-a-flower/.claude/skills/model-a-flower/SKILL.md in order.
+```
+
 ## How well it holds up
 
 Measured on the fixture, degraded on purpose. Recall is exact-match against
@@ -186,11 +250,11 @@ character followed by anything was passing straight through.
 
 ## What it does not do
 
-- It does not transcribe audio. The screen is the source of truth here; adding
-  narration is planned, as enrichment rather than as the backbone.
+- It does not turn narration into executable commands. Commands must be visible
+  on screen and pass the same recognition gate as before.
 - It does not verify that the commands work. It verifies they are well-formed.
-- It does not handle videos with no visible text. If the tutorial is a talking
-  head over slides, there is nothing to read.
+- It does not replay a guide. A guide points your agent to the narrated parts
+  and visible labels; computer-use replay is future work.
 - OCR is good, not perfect. Read the commands before running them — the output
   says so too.
 
@@ -214,7 +278,8 @@ Nothing connects them.
 ## How it works
 
 ```
-video ─► scene detection ─► OCR ─► command heuristics ─► skill ─► verify ─► emit
+video ─► scene detection ─► OCR ─► commands + narration ─► skill ─► verify ─► emit
+playlist ─► ordered videos ─► skills ─► ROUTE.md
 ```
 
 One detail worth stealing if you build something similar: **screencasts need a
@@ -241,6 +306,11 @@ assert full recall and zero invented commands against that ground truth.
 Early. The extraction core is tested and the output has been loaded by a real
 agent, but it has been exercised on a narrow set of recordings so far. Issues
 with a link to a public video are the most useful thing you can file.
+
+### Roadmap
+
+Computer-use replay for guide skills is future work; skillcast currently records
+what the tutorial teaches without pretending it can replay clicks.
 
 ---
 

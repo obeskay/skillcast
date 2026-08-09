@@ -30,6 +30,9 @@ class Step:
     detail: str = ""
     commands: list = field(default_factory=list)
     at_seconds: float = 0.0
+    narration: str = ""
+    screen: list = field(default_factory=list)
+    shortcuts: list = field(default_factory=list)
 
 
 @dataclass
@@ -43,6 +46,8 @@ class Skill:
     urls: list = field(default_factory=list)
     globs: list = field(default_factory=list)
     source: str = ""
+    kind: str = "runbook"
+    narration_language: str = ""
 
     def to_json(self):
         return json.dumps(asdict(self), indent=2, ensure_ascii=False) + "\n"
@@ -76,9 +81,22 @@ def validate(skill):
 
     if not skill.steps:
         problems.append("no steps; the skill would tell the agent nothing")
-    if not any(step.commands for step in skill.steps):
+    if skill.kind != "guide" and not any(step.commands for step in skill.steps):
         problems.append("no commands in any step; nothing here is executable")
+    if skill.kind == "guide" and not any(
+            step.narration or step.screen for step in skill.steps):
+        problems.append("no narration or screen evidence; the guide would tell the agent nothing")
     return problems
+
+
+def _timestamp(seconds):
+    try:
+        total = max(0, int(round(float(seconds or 0))))
+    except (TypeError, ValueError):
+        total = 0
+    minutes, seconds = divmod(total, 60)
+    hours, minutes = divmod(minutes, 60)
+    return "%02d:%02d:%02d" % (hours, minutes, seconds) if hours else "%02d:%02d" % (minutes, seconds)
 
 
 def _body(skill):
@@ -99,6 +117,17 @@ def _body(skill):
             out.append("```bash")
             out.extend(step.commands)
             out.append("```\n")
+        if step.narration:
+            quoted = step.narration.replace('"', '\\"').replace("\n", " ").strip()
+            out.append('> "%s" — %s\n' % (quoted, _timestamp(step.at_seconds)))
+        if step.screen:
+            out.append("**Seen on screen**\n")
+            out.extend("- `%s`" % str(line).replace("`", "") for line in step.screen)
+            out.append("")
+        if step.shortcuts:
+            out.append("**Shortcuts**\n")
+            out.extend("- `%s`" % shortcut for shortcut in step.shortcuts)
+            out.append("")
     if skill.files:
         out.append("## Files touched\n")
         out.extend("- `%s`" % f for f in skill.files)
@@ -107,27 +136,32 @@ def _body(skill):
         out.append("## References\n")
         out.extend("- %s" % u for u in skill.urls)
         out.append("")
+    if skill.narration_language:
+        out.append("Narration track: `%s`." % skill.narration_language)
     if skill.source:
         out.append("---\n")
-        out.append("Extracted from `%s` by skillcast. The commands above were "
-                   "read off the screen, not transcribed from narration — but "
-                   "OCR is not infallible, so read them before running them."
-                   % skill.source)
+        if skill.kind == "guide":
+            out.append("Built from `%s` by skillcast. The guide records what was "
+                       "said and what was visible; it does not replay clicks." % skill.source)
+        else:
+            out.append("Extracted from `%s` by skillcast. The commands above were "
+                       "read off the screen rather than transcribed from narration; "
+                       "read them before running them." % skill.source)
     return "\n".join(out).rstrip() + "\n"
 
 
 def render_claude(skill):
     description = skill.description.replace("\n", " ").strip()
-    return ("---\nname: %s\ndescription: %s\n---\n\n# %s\n\n%s"
-            % (skill.name, json.dumps(description), skill.name.replace("-", " ").title(),
+    return ("---\nname: %s\ndescription: %s\nkind: %s\n---\n\n# %s\n\n%s"
+            % (skill.name, json.dumps(description), skill.kind, skill.name.replace("-", " ").title(),
                _body(skill)))
 
 
 def render_cursor(skill):
     globs = ", ".join(skill.globs) if skill.globs else ""
     description = skill.description.replace("\n", " ").strip()
-    return ("---\ndescription: %s\nglobs: %s\nalwaysApply: false\n---\n\n# %s\n\n%s"
-            % (description, globs, skill.name.replace("-", " ").title(), _body(skill)))
+    return ("---\ndescription: %s\nglobs: %s\nalwaysApply: false\nkind: %s\n---\n\n# %s\n\n%s"
+            % (description, globs, skill.kind, skill.name.replace("-", " ").title(), _body(skill)))
 
 
 def render_agents_md(skill):

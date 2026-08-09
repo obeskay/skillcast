@@ -21,6 +21,11 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+
+FRAME_TIMEOUT_S = 300
+OCR_TIMEOUT_S = 45
+PROBE_TIMEOUT_S = 60
+
 # Prompt characters that commonly precede a shell command on screen.
 PROMPT = re.compile(r"^\s*(?:\$|>|#|❯|➜|PS\s*[^>]*>)\s+(?P<cmd>\S.*)$")
 
@@ -64,12 +69,15 @@ def _require(tool):
 def probe(video):
     """Duration and frame size, so callers can sanity-check the input."""
     _require("ffprobe")
-    result = subprocess.run(
-        ["ffprobe", "-v", "error", "-select_streams", "v:0",
-         "-show_entries", "format=duration:stream=width,height",
-         "-of", "json", str(video)],
-        capture_output=True, text=True,
-    )
+    try:
+        result = subprocess.run(
+            ["ffprobe", "-v", "error", "-select_streams", "v:0",
+             "-show_entries", "format=duration:stream=width,height",
+             "-of", "json", str(video)],
+            capture_output=True, text=True, timeout=PROBE_TIMEOUT_S,
+        )
+    except subprocess.TimeoutExpired:
+        raise ExtractionError("ffprobe took too long to read %s" % video)
     if result.returncode != 0:
         raise ExtractionError("cannot read %s: %s" % (video, result.stderr.strip()))
     data = json.loads(result.stdout or "{}")
@@ -108,18 +116,34 @@ def scene_frames(video, out_dir, threshold=DEFAULT_SCENE_THRESHOLD,
     else:
         select = "select='gt(scene,%g)+eq(n,0)'" % threshold
 
-    subprocess.run(
-        ["ffmpeg", "-y", "-loglevel", "error", "-i", str(video),
-         "-vf", select, "-vsync", "vfr", "-frames:v", str(max_frames),
-         "-q:v", "2", str(out_dir / "frame_%04d.png")],
-        capture_output=True,
-    )
+    try:
+        result = subprocess.run(
+            ["ffmpeg", "-y", "-loglevel", "info", "-i", str(video),
+             "-vf", select + ",showinfo", "-vsync", "vfr",
+             "-frames:v", str(max_frames), "-q:v", "2",
+             str(out_dir / "frame_%04d.png")],
+            capture_output=True, text=True, timeout=FRAME_TIMEOUT_S,
+        )
+    except subprocess.TimeoutExpired:
+        raise ExtractionError(
+            "ffmpeg took too long to extract frames; reduce --max-frames and try again")
     frames = sorted(out_dir.glob("frame_*.png"))
     if not frames:
         raise ExtractionError(
             "no frames extracted from %s. The file may not be a video, or the "
             "scene threshold may be too high." % video
         )
+    timestamps = []
+    for line in (result.stderr or "").splitlines():
+        match = re.search(r"showinfo.*?\bn:\s*\d+.*?pts_time:\s*([0-9.]+)", line)
+        if match:
+            timestamps.append(float(match.group(1)))
+    if len(timestamps) < len(frames):
+        # The frame order is still useful if an older ffmpeg build did not
+        # print showinfo; the normal path above keeps real video timestamps.
+        timestamps.extend([float(index) for index in range(len(timestamps), len(frames))])
+    (out_dir / "timestamps.json").write_text(
+        json.dumps(timestamps[:len(frames)]), encoding="utf-8")
     return frames
 
 
@@ -177,10 +201,15 @@ def ocr(image, lang="eng", psm=6):
     _require("tesseract")
     with tempfile.TemporaryDirectory() as tmp:
         stem = Path(tmp) / "out"
-        result = subprocess.run(
-            ["tesseract", str(image), str(stem), "--psm", str(psm), "-l", lang],
-            capture_output=True, text=True,
-        )
+        try:
+            result = subprocess.run(
+                ["tesseract", str(image), str(stem), "--psm", str(psm), "-l", lang],
+                capture_output=True, text=True, timeout=OCR_TIMEOUT_S,
+            )
+        except subprocess.TimeoutExpired:
+            raise ExtractionError(
+                "tesseract took too long to read %s; reduce --max-frames and try again"
+                % image)
         produced = stem.with_suffix(".txt")
         if not produced.exists():
             raise ExtractionError(
@@ -290,6 +319,14 @@ def read_screen(video, work_dir=None, threshold=DEFAULT_SCENE_THRESHOLD,
     work = Path(work_dir or tempfile.mkdtemp(prefix="skillcast-"))
     try:
         frames, strategy = adaptive_frames(video, work / "frames", threshold, max_frames)
+        timestamps = []
+        if frames:
+            timestamp_file = Path(frames[0]).parent / "timestamps.json"
+            if timestamp_file.exists():
+                try:
+                    timestamps = json.loads(timestamp_file.read_text(encoding="utf-8"))
+                except (TypeError, ValueError, OSError):
+                    timestamps = []
         observations = []
         for index, frame in enumerate(frames):
             text = ocr(frame, lang=lang)
@@ -306,6 +343,7 @@ def read_screen(video, work_dir=None, threshold=DEFAULT_SCENE_THRESHOLD,
                 "strategy": strategy,
                 "frame": index,
                 "file": str(frame),
+                "at_seconds": float(timestamps[index]) if index < len(timestamps) else float(index),
                 "lines": lines,
                 "commands": commands,
                 "paths": sorted(set(paths)),

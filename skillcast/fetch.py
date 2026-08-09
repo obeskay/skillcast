@@ -10,6 +10,7 @@ Nothing here touches the network unless the input actually looks like a URL.
 from __future__ import annotations
 
 import re
+import json
 import shutil
 import subprocess
 import tempfile
@@ -25,6 +26,8 @@ FAMILIAR = ("youtube.com", "youtu.be", "vimeo.com", "loom.com", "twitch.tv",
 # A tutorial worth turning into a skill is minutes long, not hours. The cap
 # keeps a mistyped playlist link from filling the disk.
 MAX_DURATION_S = 3 * 60 * 60
+METADATA_TIMEOUT_S = 120
+DOWNLOAD_TIMEOUT_S = 45 * 60
 
 
 class FetchError(RuntimeError):
@@ -37,14 +40,7 @@ def looks_like_url(value):
 
 def _yt_dlp():
     found = shutil.which("yt-dlp") or shutil.which("youtube-dl")
-    if found:
-        return [found]
-    # Installed as a library but not on PATH is common with pipx and venvs.
-    try:
-        import yt_dlp  # noqa: F401
-        return ["python3", "-m", "yt_dlp"]
-    except ImportError:
-        return None
+    return [found] if found else None
 
 
 def probe_url(url):
@@ -52,23 +48,25 @@ def probe_url(url):
     runner = _yt_dlp()
     if not runner:
         return {}
-    result = subprocess.run(
-        runner + ["--no-warnings", "--skip-download", "--print",
-                  "%(title)s\n%(duration)s", url],
-        capture_output=True, text=True,
-    )
+    try:
+        result = subprocess.run(
+            runner + ["--no-warnings", "--no-playlist", "--skip-download",
+                      "--dump-single-json", url],
+            capture_output=True, text=True, timeout=METADATA_TIMEOUT_S,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return {}
     if result.returncode != 0:
         return {}
-    lines = [l for l in result.stdout.splitlines() if l.strip()]
-    info = {}
-    if lines:
-        info["title"] = lines[0].strip()
-    if len(lines) > 1:
-        try:
-            info["duration_s"] = float(lines[1])
-        except ValueError:
-            pass
-    return info
+    try:
+        data = json.loads(result.stdout or "{}")
+        if isinstance(data, dict):
+            if data.get("duration") is not None:
+                data["duration_s"] = float(data["duration"])
+            return data
+    except (TypeError, ValueError):
+        pass
+    return {}
 
 
 # YouTube's bot checks reject anonymous downloads in waves. The documented way
@@ -119,7 +117,13 @@ def download(url, dest_dir=None, quality="best", on_progress=None,
                         "--merge-output-format", "mp4", "-o", template]
     if cookies_from_browser:
         command += ["--cookies-from-browser", cookies_from_browser]
-    result = subprocess.run(command + [url], capture_output=True, text=True)
+    try:
+        result = subprocess.run(command + [url], capture_output=True, text=True,
+                                timeout=DOWNLOAD_TIMEOUT_S)
+    except FileNotFoundError:
+        raise FetchError("yt-dlp was not found on PATH. Install it and try again.")
+    except subprocess.TimeoutExpired:
+        raise FetchError("yt-dlp took too long to download the video. Check the URL and try again.")
 
     if result.returncode != 0:
         detail = (result.stderr or result.stdout or "").strip().splitlines()

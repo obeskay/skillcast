@@ -126,7 +126,8 @@ def check_substance(skill):
     findings = []
     text = " ".join(
         [skill.description, skill.summary]
-        + [s.title + " " + s.detail for s in skill.steps])
+        + [s.title + " " + s.detail + " " + s.narration + " " +
+           " ".join(s.screen) for s in skill.steps])
     match = FILLER.search(text)
     if match:
         findings.append(Finding(
@@ -144,6 +145,18 @@ def check_substance(skill):
         findings.append(Finding("warn", "SUB003",
                                 "only one command across the whole skill"))
     return findings
+
+
+def check_guide(skill):
+    if skill.kind != "guide":
+        return []
+    if not any(step.shortcuts or step.screen for step in skill.steps):
+        return [Finding(
+            "warn", "GUIDE001",
+            "this guide is narration-only; review it because no shortcuts or "
+            "screen evidence were captured",
+            "The spoken track gives structure, but it cannot replay what was clicked.")]
+    return []
 
 
 def check_tools(skill, check_availability=False):
@@ -173,6 +186,7 @@ def verify(skill, check_availability=False):
     findings += check_structure(skill)
     findings += check_commands(skill)
     findings += check_substance(skill)
+    findings += check_guide(skill)
     tool_findings, tools = check_tools(skill, check_availability)
     findings += tool_findings
     order = {"error": 0, "warn": 1, "info": 2}
@@ -190,9 +204,12 @@ def shellcheck(skill):
         return []
     script = "#!/bin/sh\n" + "\n".join(
         c for step in skill.steps for c in step.commands)
-    result = subprocess.run(
-        ["shellcheck", "-s", "sh", "-f", "gcc", "-"],
-        input=script, capture_output=True, text=True)
+    try:
+        result = subprocess.run(
+            ["shellcheck", "-s", "sh", "-f", "gcc", "-"],
+            input=script, capture_output=True, text=True, timeout=30)
+    except subprocess.TimeoutExpired:
+        return [Finding("warn", "SHELL", "shellcheck took too long and was skipped")]
     findings = []
     for line in result.stdout.splitlines():
         match = re.match(r"^-:(\d+):\d+:\s*(\w+):\s*(.*)$", line)

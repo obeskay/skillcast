@@ -1,0 +1,10 @@
+{
+  "_type": "playlist",
+  "id": "blender-basics-fixture",
+  "title": "Blender Flower Route",
+  "entries": [
+    {"_type": "url", "id": "flower-advanced", "title": "Advanced Flower Shading", "duration": 420},
+    {"_type": "url", "id": "flower-intro", "title": "Blender Introduction", "duration": 300},
+    {"_type": "url", "id": "flower-basics", "title": "Flower Modeling Basics", "duration": 360}
+  ]
+}
