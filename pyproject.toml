@@ -8,7 +8,7 @@ version = "0.3.0"
 description = "Turn a screencast into a skill your coding agent can run"
 readme = "README.md"
 requires-python = ">=3.8"
-authors = [{ name = "Obed Vargas" }]
+authors = [{ name = "obeskay" }]
 license = { text = "MIT" }
 keywords = ["ai-agents", "claude-code", "cursor", "ocr", "screencast",
             "developer-tools", "agent-skills", "video"]
