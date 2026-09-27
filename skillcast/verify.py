@@ -204,9 +204,12 @@ def shellcheck(skill):
         return []
     script = "#!/bin/sh\n" + "\n".join(
         c for step in skill.steps for c in step.commands)
+    # SC2164 ("cd ... || exit") is script hygiene. A skill's commands run one
+    # at a time and must stay literal, so it would fail --strict on every
+    # tutorial that changes directory.
     try:
         result = subprocess.run(
-            ["shellcheck", "-s", "sh", "-f", "gcc", "-"],
+            ["shellcheck", "-s", "sh", "-e", "SC2164", "-f", "gcc", "-"],
             input=script, capture_output=True, text=True, timeout=30)
     except subprocess.TimeoutExpired:
         return [Finding("warn", "SHELL", "shellcheck took too long and was skipped")]

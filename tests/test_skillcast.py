@@ -231,6 +231,14 @@ class VerifyTest(unittest.TestCase):
         _, tools = verify(sample_skill())
         self.assertIn("npm", tools)
 
+    @unittest.skipUnless(shutil.which("shellcheck"), "shellcheck not installed")
+    def test_cd_is_not_a_shellcheck_warning(self):
+        """SC2164 failed --strict on the fixture's own `cd my-app`."""
+        from skillcast.verify import shellcheck
+        skill = sample_skill(steps=[Step("Enter", commands=["cd my-app"]),
+                                    Step("Install", commands=["npm install"])])
+        self.assertEqual(shellcheck(skill), [])
+
 
 @unittest.skipUnless(HAVE_TOOLS, "ffmpeg/ffprobe/tesseract not installed")
 class EndToEndTest(unittest.TestCase):
