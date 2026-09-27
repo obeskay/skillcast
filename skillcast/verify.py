@@ -202,14 +202,16 @@ def shellcheck(skill):
     """Run shellcheck over the commands when it is installed."""
     if not shellcheck_available():
         return []
-    script = "#!/bin/sh\n" + "\n".join(
+    script = "#!/bin/bash\n" + "\n".join(
         c for step in skill.steps for c in step.commands)
+    # Lint as bash, the shell people paste tutorial commands into: as POSIX sh,
+    # `source .venv/bin/activate` and `[[ ]]` are warnings that fail --strict.
     # SC2164 ("cd ... || exit") is script hygiene. A skill's commands run one
     # at a time and must stay literal, so it would fail --strict on every
     # tutorial that changes directory.
     try:
         result = subprocess.run(
-            ["shellcheck", "-s", "sh", "-e", "SC2164", "-f", "gcc", "-"],
+            ["shellcheck", "-s", "bash", "-e", "SC2164", "-f", "gcc", "-"],
             input=script, capture_output=True, text=True, timeout=30)
     except subprocess.TimeoutExpired:
         return [Finding("warn", "SHELL", "shellcheck took too long and was skipped")]

@@ -233,10 +233,12 @@ class VerifyTest(unittest.TestCase):
 
     @unittest.skipUnless(shutil.which("shellcheck"), "shellcheck not installed")
     def test_cd_is_not_a_shellcheck_warning(self):
-        """SC2164 failed --strict on the fixture's own `cd my-app`."""
+        """SC2164 failed --strict on the fixture's own `cd my-app`; linting as
+        POSIX sh did the same to `source` and `[[ ]]`."""
         from skillcast.verify import shellcheck
         skill = sample_skill(steps=[Step("Enter", commands=["cd my-app"]),
-                                    Step("Install", commands=["npm install"])])
+                                    Step("Venv", commands=["source .venv/bin/activate"]),
+                                    Step("Check", commands=["[[ -f package.json ]] && npm install"])])
         self.assertEqual(shellcheck(skill), [])
 
 
