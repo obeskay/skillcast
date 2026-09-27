@@ -1,6 +1,6 @@
 # Brief — skillcast: narration track + playlist routes
 
-Date: 2026-08-09 · Owner: Obed · Executor: Claude Code (headless)
+Date: 2026-08-09 · Owner: ov · Executor: Claude Code (headless)
 Repo: ~/Documents/personal/skillcast · Branch: work on `main` is fine (single-author repo)
 
 ## Mission
