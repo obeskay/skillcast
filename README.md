@@ -224,7 +224,7 @@ peekaboo run model-a-flower.peekaboo.json --no-remote
 ```
 
 Needs [Peekaboo](https://github.com/steipete/peekaboo) (`brew install
-steipede/tap/peekaboo`) with its macOS permissions granted. `--run` executes
+steipete/tap/peekaboo`) with its macOS permissions granted. `--run` executes
 immediately — real keystrokes into the frontmost app, so focus the right one
 first. The script shape is what installed Peekaboo builds (3.0.0) actually
 decode; it was probed live, not copied from docs.

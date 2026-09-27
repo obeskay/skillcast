@@ -134,7 +134,7 @@ def run_script(path):
     """Execute the pack through peekaboo. This sends real keystrokes."""
     if not shutil.which("peekaboo"):
         raise ReplayError(
-            "peekaboo is not installed — brew install steipede/tap/peekaboo")
+            "peekaboo is not installed — brew install steipete/tap/peekaboo")
     try:
         result = subprocess.run(
             ["peekaboo", "run", str(path), "--json", "--no-remote"],
