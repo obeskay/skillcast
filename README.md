@@ -18,7 +18,7 @@ skillcast vite-testing-tutorial.mp4
 
 ```
 read vite-testing-tutorial.mp4 — 18s, 5 scene changes, 5 commands
-skill: set-up-a-vite-project (5 steps)
+skill: set-up-a-vite-project (5 steps, runbook)
   1. Set up a Vite project
        $ npm create vite@latest my-app -- --template react-ts
   2. Install dependencies
@@ -30,9 +30,12 @@ skill: set-up-a-vite-project (5 steps)
   5. Run the tests
        $ npm run test
 
+  wrote skill/AGENTS.md
   wrote skill/.claude/skills/set-up-a-vite-project/SKILL.md
   wrote skill/.cursor/rules/set-up-a-vite-project.mdc
-  wrote skill/AGENTS.md
+  wrote skill/skill.json
+
+Read the commands before running them. OCR is good, not perfect.
 ```
 
 Your agent now knows how to do the thing in the video.
