@@ -2,7 +2,7 @@
 
 **Feed it a tutorial video. Get a skill your coding agent can actually run.**
 
-![skillcast: video in — skill out](assets/cover.png)
+![skillcast reading an 18-second terminal tutorial and writing a Claude Code skill, a Cursor rule and AGENTS.md](docs/media/video-to-skill.gif)
 
 ### [→ Try it in your browser](https://skillcast.cloud.obeskay.com)
 
@@ -12,8 +12,10 @@ for it to go to.
 
 ![skillcast: screen recording in, SKILL.md out](assets/demo.png)
 
+Run it without installing anything but [uv](https://docs.astral.sh/uv/):
+
 ```bash
-skillcast vite-testing-tutorial.mp4
+uvx --from git+https://github.com/obeskay/skillcast skillcast vite-testing-tutorial.mp4
 ```
 
 ```
@@ -39,6 +41,11 @@ Read the commands before running them. OCR is good, not perfect.
 ```
 
 Your agent now knows how to do the thing in the video.
+
+The same run on the repo's fixture is committed untouched in
+[`examples/vite-testing/`](examples/vite-testing/) — start with the
+[`SKILL.md`](examples/vite-testing/.claude/skills/set-up-a-vite-project/SKILL.md).
+Regenerate them with `skillcast fixtures/tutorial.mp4 -o examples/vite-testing`.
 
 ---
 
@@ -74,6 +81,8 @@ Only one of those runs.
 
 ```bash
 pip install git+https://github.com/obeskay/skillcast
+# or, without a permanent install:
+uvx --from git+https://github.com/obeskay/skillcast skillcast --help
 ```
 
 > The PyPI name `skillcast` is taken by an unrelated project, so the package will
