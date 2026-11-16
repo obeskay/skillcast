@@ -1,0 +1,52 @@
+---
+name: set-up-a-vite-project
+description: "Set up a Vite project. Use when the task involves Vite, React, Vitest, Node.js: this skill carries the exact commands demonstrated in the source recording, in order."
+kind: runbook
+---
+
+# Set Up A Vite Project
+
+5 steps taken from a screen recording. The commands were read off the screen rather than transcribed from narration, so they are the literal text that was run.
+
+## Prerequisites
+
+- Node.js and a package manager (npm, pnpm or yarn)
+
+## Steps
+
+### 1. Set up a Vite project
+
+```bash
+npm create vite@latest my-app -- --template react-ts
+```
+
+### 2. Install dependencies
+
+```bash
+cd my-app
+npm install
+```
+
+### 3. Add Vitest
+
+```bash
+npm install -D vitest @testing-library/react
+```
+
+### 4. Configure the test script
+
+Edit `package.json`. The recording shows the file on screen rather than a command.
+
+### 5. Run the tests
+
+```bash
+npm run test
+```
+
+## Files touched
+
+- `package.json`
+
+---
+
+Extracted from `tutorial.mp4` by skillcast. The commands above were read off the screen rather than transcribed from narration; read them before running them.

@@ -1,0 +1,78 @@
+{
+  "name": "set-up-a-vite-project",
+  "description": "Set up a Vite project. Use when the task involves Vite, React, Vitest, Node.js: this skill carries the exact commands demonstrated in the source recording, in order.",
+  "summary": "5 steps taken from a screen recording. The commands were read off the screen rather than transcribed from narration, so they are the literal text that was run.",
+  "prerequisites": [
+    "Node.js and a package manager (npm, pnpm or yarn)"
+  ],
+  "steps": [
+    {
+      "title": "Set up a Vite project",
+      "detail": "",
+      "commands": [
+        "npm create vite@latest my-app -- --template react-ts"
+      ],
+      "at_seconds": 0.0,
+      "narration": "",
+      "screen": [],
+      "shortcuts": []
+    },
+    {
+      "title": "Install dependencies",
+      "detail": "",
+      "commands": [
+        "cd my-app",
+        "npm install"
+      ],
+      "at_seconds": 3.0,
+      "narration": "",
+      "screen": [],
+      "shortcuts": []
+    },
+    {
+      "title": "Add Vitest",
+      "detail": "",
+      "commands": [
+        "npm install -D vitest @testing-library/react"
+      ],
+      "at_seconds": 6.0,
+      "narration": "",
+      "screen": [],
+      "shortcuts": []
+    },
+    {
+      "title": "Configure the test script",
+      "detail": "Edit `package.json`. The recording shows the file on screen rather than a command.",
+      "commands": [],
+      "at_seconds": 9.0,
+      "narration": "",
+      "screen": [],
+      "shortcuts": []
+    },
+    {
+      "title": "Run the tests",
+      "detail": "",
+      "commands": [
+        "npm run test"
+      ],
+      "at_seconds": 12.0,
+      "narration": "",
+      "screen": [],
+      "shortcuts": []
+    }
+  ],
+  "files": [
+    "package.json"
+  ],
+  "urls": [],
+  "globs": [
+    "**/*.tsx",
+    "**/*.jsx",
+    "**/package.json",
+    "**/*.ts",
+    "**/*.js"
+  ],
+  "source": "tutorial.mp4",
+  "kind": "runbook",
+  "narration_language": ""
+}
